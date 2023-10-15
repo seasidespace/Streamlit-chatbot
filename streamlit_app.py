@@ -9,3 +9,6 @@ conn = st.experimental_connection("snowpark")
 df = conn.query("select current_warehouse()")
 st.write(df)
 
+#change from streamlit app 1
+
+
