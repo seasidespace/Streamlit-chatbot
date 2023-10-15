@@ -2,7 +2,7 @@ import streamlit as st
 import os
 import openai
 from snowflake.snowpark import Session
-from prompts import get_system_prompt
+from prompt import get_system_prompt
 
 
 st.title('❄️Snowflake Business Intelligent Chatbot')
