@@ -1,6 +1,7 @@
 import streamlit as st
 import os
 import openai
+from snowflake.snowpark import Session
 
 
 st.title('❄️ Welcome to Snowflake Business Intelligent Chatbot')
