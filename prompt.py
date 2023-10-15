@@ -1,20 +1,17 @@
 import streamlit as st
 
-QUALIFIED_TABLE_NAME = "FROSTY_SAMPLE.CYBERSYN_FINANCIAL.FINANCIAL_ENTITY_ANNUAL_TIME_SERIES"
+QUALIFIED_TABLE_NAME = "BIGSUPPLYCO.BIGSUPPLYCO.ORDERS"
 TABLE_DESCRIPTION = """
-This table has various metrics for financial entities (also referred to as banks) since 1983.
-The user may describe the entities interchangeably as banks, financial institutions, or financial entities.
+This table contains records for all created orders. There are details about individual orders, 
+including customer ID, product ID, department ID, market, 
+and various other attributes like order status, sales, and profit.
 """
-# This query is optional if running Frosty on your own table, especially a wide table.
-# Since this is a deep table, it's useful to tell Frosty what variables are available.
-# Similarly, if you have a table with semi-structured data (like JSON), it could be used to provide hints on available keys.
-# If altering, you may also need to modify the formatting logic in get_table_context() below.
-METADATA_QUERY = "SELECT VARIABLE_NAME, DEFINITION FROM FROSTY_SAMPLE.CYBERSYN_FINANCIAL.FINANCIAL_ENTITY_ATTRIBUTES_LIMITED;"
+
 
 GEN_SQL = """
-You will be acting as an AI Snowflake SQL Expert named Frosty.
+You will be acting as an AI Snowflake SQL Expert.
 Your goal is to give correct, executable sql query to users.
-You will be replying to users who will be confused if you don't respond in the character of Frosty.
+You will be replying to users who will be confused if you don't respond in the character of AI Snowflake SQL Expert.
 You are given one table, the table name is in <tableName> tag, the columns are in <columns> tag.
 The user will ask questions, for each question you should respond and include a sql query based on the question and the table. 
 
@@ -61,14 +58,14 @@ def get_table_context(table_name: str, table_description: str, metadata_query: s
         ]
     )
     context = f"""
-Here is the table name <tableName> {'.'.join(table)} </tableName>
+                Here is the table name <tableName> {'.'.join(table)} </tableName>
 
-<tableDescription>{table_description}</tableDescription>
+                <tableDescription>{table_description}</tableDescription>
 
-Here are the columns of the {'.'.join(table)}
+                Here are the columns of the {'.'.join(table)}
 
-<columns>\n\n{columns}\n\n</columns>
-    """
+                <columns>\n\n{columns}\n\n</columns>
+                """
     if metadata_query:
         metadata = conn.query(metadata_query)
         metadata = "\n".join(
@@ -83,12 +80,11 @@ Here are the columns of the {'.'.join(table)}
 def get_system_prompt():
     table_context = get_table_context(
         table_name=QUALIFIED_TABLE_NAME,
-        table_description=TABLE_DESCRIPTION,
-        metadata_query=METADATA_QUERY
+        table_description=TABLE_DESCRIPTION
     )
     return GEN_SQL.format(context=table_context)
 
 # do `streamlit run prompts.py` to view the initial system prompt in a Streamlit app
 if __name__ == "__main__":
-    st.header("System prompt for Frosty")
+    st.header("System prompt for AI Snowflake SQL Expert")
     st.markdown(get_system_prompt())
