@@ -3,6 +3,8 @@ import os
 import openai
 from snowflake.snowpark import Session
 from prompt import get_system_prompt
+import re
+
 
 
 st.title('❄️Snowflake Business Intelligent Chatbot')
