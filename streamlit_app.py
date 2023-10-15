@@ -2,23 +2,34 @@ import streamlit as st
 import os
 import openai
 
-# Everything is accessible via the st.secrets dict:
-st.write("DB username:", st.secrets.OPENAI_API_KEY)
-# And the root-level secrets are also accessible as environment variables:
+st.title("☃️ Frosty")
 
-conn = st.experimental_connection("snowpark")
-df = conn.query("select current_warehouse()")
-st.write(df)
+# Initialize the chat messages history
+if "messages" not in st.session_state.keys():
+    st.session_state.messages = [
+        {"role": "assistant", "content": "How can I help?"}
+    ]
 
-#change from streamlit app 1
+# Prompt for user input and save
+if prompt := st.chat_input():
+    st.session_state.messages.append({"role": "user", "content": prompt})
 
-openai.api_key = st.secrets.OPENAI_API_KEY
+# display the existing chat messages
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
 
-completion = openai.ChatCompletion.create(
-  model="gpt-3.5-turbo",
-  messages=[
-    {"role": "user", "content": "What is Streamlit?"}
-  ]
-)
+# If last message is not from assistant, we need to generate a new response
+if st.session_state.messages[-1]["role"] != "assistant":
+    # Call LLM
+    with st.chat_message("assistant"):
+        with st.spinner("Thinking..."):
+            r = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
+            )
+            response = r.choices[0].message.content
+            st.write(response)
 
-st.write(completion.choices[0].message.content)
+    message = {"role": "assistant", "content": response}
+    st.session_state.messages.append(message)
