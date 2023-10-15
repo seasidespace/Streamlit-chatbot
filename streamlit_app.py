@@ -8,3 +8,4 @@ st.write("DB username:", st.secrets.OPENAI_API_KEY)
 conn = st.experimental_connection("snowpark")
 df = conn.query("select current_warehouse()")
 st.write(df)
+
