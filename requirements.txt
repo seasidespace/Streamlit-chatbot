@@ -1,4 +1,5 @@
 snowflake-snowpark-python[pandas]==1.5.1
+snowflake-connector-python==2.7.9
 streamlit==1.24.0
 openai==0.27.8
 langchain==0.0.305
@@ -10,3 +11,5 @@ tiktoken==0.4.0
 black==23.3.0
 replicate==0.8.4
 boto3==1.28.57
+snowflake-sqlalchemy-1.5.0
+typing-extensions>=4.3.0
