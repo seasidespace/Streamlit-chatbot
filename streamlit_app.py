@@ -1,65 +1,3 @@
-"""
-import streamlit as st
-import os
-import openai
-from snowflake.snowpark import Session
-import re
-
-st.title('❄️Snowflake Business Intelligent Chatbot')
-
-# Establish Snowflake session
-@st.cache_resource
-def create_session():
-    return Session.builder.configs(st.secrets.connections.snowpark).create()
-
-session = create_session()
-st.success("Connected to Snowflake!")
-
-# Initialize the chat messages history
-openai.api_key = st.secrets.OPENAI_API_KEY
-if "messages" not in st.session_state:
-    # system prompt includes table information, rules, and prompts the LLM to produce
-    # a welcome message to the user.
-    st.session_state.messages = [{"role": "system", "content": get_system_prompt()}]
-
-# Prompt for user input and save
-if prompt := st.chat_input():
-    st.session_state.messages.append({"role": "user", "content": prompt})
-
-# display the existing chat messages
-for message in st.session_state.messages:
-    if message["role"] == "system":
-        continue
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
-        if "results" in message:
-            st.dataframe(message["results"])
-
-# If last message is not from assistant, we need to generate a new response
-if st.session_state.messages[-1]["role"] != "assistant":
-    with st.chat_message("assistant"):
-        response = ""
-        resp_container = st.empty()
-        for delta in openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
-            stream=True,
-        ):
-            response += delta.choices[0].delta.get("content", "")
-            resp_container.markdown(response)
-
-        message = {"role": "assistant", "content": response}
-        # Parse the response for a SQL query and execute if available
-        sql_match = re.search(r"```sql\n(.*)\n```", response, re.DOTALL)
-        if sql_match:
-            sql = sql_match.group(1)
-            conn = st.experimental_connection("snowpark")
-            message["results"] = conn.query(sql)
-            st.dataframe(message["results"])
-        st.session_state.messages.append(message)
-
-"""
-
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit
 from langchain.utilities import SQLDatabase
 from langchain.llms import OpenAI
@@ -68,6 +6,8 @@ from langchain.sql_database import SQLDatabase
 from langchain.agents import AgentExecutor
 from sqlalchemy.dialects import registry
 from snowflake.snowpark import Session
+import pandas as pd
+from ast import literal_eval
 import streamlit as st
 import openai
 import re
@@ -75,10 +15,12 @@ import os
 
 
 # secrets to login snowflake db
-user = st.secrets.connections.snowpark.user
+#user = st.secrets.connections.snowpark.user
+#role_name = st.secrets.connections.snowpark.role
+user = st.secrets.connections.snowpark.user_read
+role_name = st.secrets.connections.snowpark.role_read
 password = st.secrets.connections.snowpark.password
 warehouse = st.secrets.connections.snowpark.warehouse
-role_name = st.secrets.connections.snowpark.role
 account = st.secrets.connections.snowpark.account
 database = st.secrets.connections.snowpark.database
 schema = st.secrets.connections.snowpark.schema
@@ -91,6 +33,14 @@ registry.register('snowflake', 'snowflake.sqlalchemy', 'dialect')
 @st.cache_resource
 def create_session():
     return Session.builder.configs(st.secrets.connections.snowpark).create()
+
+# Display title 
+st.title('❄️Snowflake Database Chatbot')
+
+# display the sidebar
+with open("ui/sidebar.md", "r") as sidebar_file:
+    sidebar_content = sidebar_file.read()
+st.sidebar.markdown(sidebar_content)
 
 # Display the connection success message
 session = create_session()
@@ -108,81 +58,63 @@ agent_executor = SQLDatabaseSequentialChain.from_llm(
     return_intermediate_steps=True
     )
 
-INITIAL_MESSAGE = [
-    {"role": "user", "content": "Hi!"},
-    {
-        "role": "assistant",
-        "content": "Hey there, I'm Chatty McQueryFace, your SQL-speaking sidekick, ready to chat up Snowflake and fetch answers faster than a snowball fight in summer! ❄️🔍",
-    },
-]
+# Initialize the chat message history
+if "messages" not in st.session_state.keys(): 
+    welcome_message = 'Welcome to the ❄️Snowflake Chatbot! I will assist you in navigating and querying your data with ease. Feel free to ask any questions!'
+    st.session_state.messages = [
+        {"role": "assistant", "content": welcome_message}
+    ]
 
-# Initialize the chat messages history
-if "messages" not in st.session_state.keys():
-    st.session_state["messages"] = INITIAL_MESSAGE
-
-if "history" not in st.session_state:
-    st.session_state["history"] = []
-
-if "model" not in st.session_state:
-    st.session_state["model"] = model
-
-# Prompt for user input and save
-if prompt := st.chat_input():
+# Prompt for user input and save to chat history
+if prompt := st.chat_input("Your question"): 
     st.session_state.messages.append({"role": "user", "content": prompt})
 
-for message in st.session_state.messages:
-    message_func(
-        message["content"],
-        True if message["role"] == "user" else False,
-        True if message["role"] == "data" else False,
-    )
+# Display the prior chat messages
+for message in st.session_state.messages: 
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
 
-def append_chat_history(question, answer):
-    st.session_state["history"].append((question, answer))
+# clean the string
+def clean_string(input_string):
+    lit = literal_eval(re.sub(' "([A-Za-z])" ', r'"\1"', input_string))    
+    return lit
 
-def append_message(content, role="assistant", display=False):
-    message = {"role": role, "content": content}
-    st.session_state.messages.append(message)
-    if role != "data":
-        append_chat_history(st.session_state.messages[-2]["content"], content)
+# convert it into pandas table
+def make_into_markdown_table(lit):
+    num_columns = len(lit[0])
 
-    if callback_handler.has_streaming_ended:
-        callback_handler.has_streaming_ended = False
-        return
-response = agent_executor(prompt)
+    # Create a DataFrame from the output data
+    df = pd.DataFrame(lit, columns=[f"Column{i}" for i in range(1, num_columns + 1)])
 
+    # Convert the DataFrame to a Markdown table
+    table_markdown = df.to_markdown(index=False)
+    return table_markdown
+
+def execute_prompt(prompt):
+    try:
+        response = agent_executor(prompt)
+        
+        question = response['query']
+        sql_query = response['intermediate_steps'][1]
+        sql_result = make_into_markdown_table(clean_string(response['intermediate_steps'][3]))
+        answer = response['result']
+
+        final_response = f"**Question:** {question}\n\n**SQL Query:**\n```sql\n{sql_query}\n```\n\n**Output:**\n{sql_result} \n\n\n\n **Answer:** {answer}"
+        message = {"role": "assistant", "content": final_response}
+        st.session_state.messages.append(message)
+       
+        st.write(final_response)
+
+        return 
+    except:
+        message = {"role": "assistant", "content": "🥶I'm sorry, I couldn't perform this operation or answer this question."}
+        st.write(message["content"])
+        st.session_state.messages.append(message)
+        pass
+    
+
+# If last message is not from assistant, generate a new response
 if st.session_state.messages[-1]["role"] != "assistant":
-    content = st.session_state.messages[-1]["content"]
-    if isinstance(content, str):
-        result = chain(
-            {"question": content, "chat_history": st.session_state["history"]}
-        )["answer"]
-        print(result)
-        append_message(result)
-        if get_sql(result):
-            conn = SnowflakeConnection().get_session()
-            df = execute_sql(get_sql(result), conn)
-            if df is not None:
-                callback_handler.display_dataframe(df)
-                append_message(df, "data", True)
-
-
-"""
-print('sql query: ', response['intermediate_steps'][1])
-print('orginal question: ', response['query'])
-print('final answer: ', response['result'])
-print('sql result: ',response['intermediate_steps'][3])
-"""
-
-
-if prompt := st.chat_input():
-    st.chat_message("user").write(prompt)
     with st.chat_message("assistant"):
-        response = agent_executor.run(prompt)
-        st.write( response['intermediate_steps'][1])
-        st.write(response['query'])
-        st.write(response['result'])
-        st.write(response['intermediate_steps'][3])
-
-
-#jjjj
+        with st.spinner("🤔Thinking..."):
+            response = execute_prompt(prompt)
