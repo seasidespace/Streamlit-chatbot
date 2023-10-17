@@ -101,3 +101,4 @@ get_table_context(
 #    st.header("System prompt for AI Snowflake SQL Expert")
 #    st.markdown(get_system_prompt())
 
+
