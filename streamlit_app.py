@@ -1,5 +1,5 @@
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit
-from langchain.utilities import SQLDatabase
+#from langchain.utilities import SQLDatabase
 from langchain.llms import OpenAI
 from langchain_experimental.sql import SQLDatabaseSequentialChain
 from langchain.sql_database import SQLDatabase
