@@ -16,3 +16,5 @@ Here are some example queries you can try with SnowChat:
     - For example, "drop the order table" is not allowed
 - Can't answer unrelated database questions.
     - For example, it cannot answer "how's the weather?"
+
+    

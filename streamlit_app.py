@@ -119,3 +119,4 @@ if st.session_state.messages[-1]["role"] != "assistant":
         with st.spinner("🤔Thinking..."):
             response = execute_prompt(prompt)
 
+
